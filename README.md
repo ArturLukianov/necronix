@@ -1,6 +1,7 @@
 # Necronix
-Necronix is a real time strategy game focused on unit management.
+Necronix is a real time strategy game where you are controlling undead beings to spread your will around the world.
 
+## Screenshots
 ## Characters
 ## Story
 ## Theme
@@ -13,7 +14,8 @@ Necronix is a real time strategy game focused on unit management.
 ## Losing
 ## Art style
 [Palette](https://coolors.co/0b2027-40798c-70a9a1-cfd7c7-f6f1d1)
-ASCII graphics, cp437 codepage tileset 
+
+ASCII graphics, cp437 codepage tileset (customizable)
 ## Music and sound
 ## Technical description
 ## Localization

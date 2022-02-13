@@ -2,6 +2,7 @@
 Necronix is a real time strategy game where you are controlling undead beings to spread your will around the world.
 
 ## Screenshots
+!(Main menu)[screenshots/mainmenu.png]
 ## Characters
 ## Story
 ## Theme

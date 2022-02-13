@@ -14,9 +14,11 @@ use components::*;
 
 
 pub struct State {
-    gui_mode_index: usize,
+    gui_menu: gui::GuiMenu,
+    gui_game_mode_index: usize,
     log: gamelog::Gamelog,
-    ecs: World
+    ecs: World,
+    selected_unit_index: usize
 }
 
 
@@ -37,9 +39,11 @@ fn main() {
     let mut tileset = texture_creator.load_texture("./resources/16x16-RogueYun-AgmEdit.png").unwrap();
 
     let mut state = State{
-        gui_mode_index: 0,
+        gui_menu: gui::GuiMenu::MainMenu,
+        gui_game_mode_index: 0,
         ecs: World::new(),
         log: gamelog::Gamelog{ entries: vec!["Welcome to necronix!".to_string()] },
+        selected_unit_index: 0
     };
 
     let map = map::Map::new(15, 15);
@@ -49,13 +53,15 @@ fn main() {
     state.ecs.register::<Renderable>();
     state.ecs.register::<Position>();
     state.ecs.register::<Unit>();
+    state.ecs.register::<Name>();
+    state.ecs.register::<BlocksTile>();
 
     let mut rng = rand::thread_rng();
 
     for _ in 0..10 {
         state.ecs.create_entity()
                  .with(Position{ x: rng.gen_range(0..15), y: rng.gen_range(0..15) })
-                 .with(Renderable{ glyph: '%' as u32, color: (0, 100, 100) })
+                 .with(Renderable{ glyph: 139 + rng.gen_range(0..3), color: (50 * rng.gen_range(0..3), 50 * rng.gen_range(0..3), 50 * rng.gen_range(0..3)) })
                  .with(Unit{})
                  .build();
     }
@@ -65,18 +71,54 @@ fn main() {
     ctx.mouse().show_cursor(false);
 
     'running: loop {
-        for event in events.poll_iter() {
-            match event {
-                Event::Quit {..} |
-                Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
-                    break 'running
-                },
-                Event::KeyDown { keycode: Some(Keycode::Tab), repeat: false, .. } => {
-                    state.gui_mode_index = (state.gui_mode_index + 1) % gui::MODES.len();
+        let units = state.ecs.read_storage::<Unit>().count();
+
+        match state.gui_menu {
+            gui::GuiMenu::GameMenu => {
+                for event in events.poll_iter() {
+                    match event {
+                        Event::Quit {..} |
+                        Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
+                            break 'running
+                        },
+                        Event::KeyDown { keycode: Some(Keycode::Tab), .. } => {
+                            state.gui_game_mode_index = (state.gui_game_mode_index + 1) % gui::MODES.len();
+                        },
+                        Event::KeyDown { keycode: Some(Keycode::D), .. } => {
+                            state.selected_unit_index = (state.selected_unit_index + 1) % units;
+                        },
+                        Event::KeyDown { keycode: Some(Keycode::A), .. } => {
+                            if state.selected_unit_index == 0 { state.selected_unit_index = units - 1; }
+                            else { state.selected_unit_index = state.selected_unit_index - 1; }
+                        }
+                        _ => {}
+                    }
                 }
-                _ => {}
-            }
+            },
+            gui::GuiMenu::MainMenu => {
+                for event in events.poll_iter() {
+                    match event {
+                        Event::Quit {..} |
+                        Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
+                            break 'running
+                        },
+                        Event::KeyDown { keycode: Some(Keycode::D), repeat: false, .. } => {
+                            state.selected_unit_index = (state.selected_unit_index + 1) % units;
+                        },
+                        Event::KeyDown { keycode: Some(Keycode::A), repeat: false, .. } => {
+                            if state.selected_unit_index == 0 { state.selected_unit_index = units - 1; }
+                            else { state.selected_unit_index = state.selected_unit_index - 1; }
+                        },
+                        Event::KeyDown { keycode: Some(Keycode::Return), repeat: false, .. } => {
+                            state.gui_menu = gui::GuiMenu::GameMenu;
+                        }
+                        _ => {}
+                    }
+                }
+            },
+            _ => {}
         }
+
         gui::render(&mut canvas, &mut state, &mut tileset);
         std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
     }

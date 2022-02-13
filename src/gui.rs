@@ -202,8 +202,8 @@ impl GUI<'_> {
 
         for i in 0..GameMenuTabVariants {
             let tab = match i {
-                0 => GameMenuTab::Log,
-                1 => GameMenuTab::Unit,
+                1 => GameMenuTab::Log,
+                0 => GameMenuTab::Unit,
                 _ => GameMenuTab::Unit
             };
 
@@ -235,10 +235,10 @@ impl GUI<'_> {
         }
 
         match state.gui_game_mode_index {
-            0 => {
+            1 => {
                 self.draw_log(state, MAP_SIZE, 1);
             },
-            1 => {
+            0 => {
                 self.draw_unit_info(state, MAP_SIZE, 1);
             },
             _ => {}
@@ -279,8 +279,8 @@ impl GUI<'_> {
 
 
         let tab = match state.gui_game_mode_index {
-            0 => GameMenuTab::Log,
-            1 => GameMenuTab::Unit,
+            1 => GameMenuTab::Log,
+            0 => GameMenuTab::Unit,
             _ => GameMenuTab::Unit
         };
 

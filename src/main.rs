@@ -2,6 +2,7 @@ mod gui;
 mod gamelog;
 mod map;
 mod components;
+mod mission_system;
 
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
@@ -11,10 +12,12 @@ use std::time::Duration;
 use rand::Rng;
 
 use components::*;
+use mission_system::MissionSystem;
+
+pub const TICK_SIZE: u32 = 13;
 
 
 pub struct State {
-    gui_game_mode_index: usize,
     log: gamelog::Gamelog,
     ecs: World,
     selected_unit_index: usize
@@ -40,7 +43,6 @@ fn main() {
     let mut gui = gui::GUI { canvas: canvas, tileset: tileset, menu: gui::GuiMenu::MainMenu(gui::MainMenuButton::Start) };
 
     let mut state = State{
-        gui_game_mode_index: 0,
         ecs: World::new(),
         log: gamelog::Gamelog{ entries: vec!["Welcome to necronix!".to_string()] },
         selected_unit_index: 0
@@ -62,27 +64,30 @@ fn main() {
         state.ecs.create_entity()
                  .with(Position{ x: rng.gen_range(0..15), y: rng.gen_range(0..15) })
                  .with(Renderable{ glyph: 139 + rng.gen_range(0..3), color: (50 * rng.gen_range(0..3), 50 * rng.gen_range(0..3), 50 * rng.gen_range(0..3)) })
-                 .with(Unit{})
+                 .with(Unit{ mission: Mission::GoTo(rng.gen_range(0..15), rng.gen_range(0..15)) })
                  .build();
     }
 
     let mut events = ctx.event_pump().unwrap();
+    let mut mission_system = MissionSystem {};
 
     ctx.mouse().show_cursor(false);
+
+    let mut tick = 0;
 
     'running: loop {
         let units = state.ecs.read_storage::<Unit>().count();
 
         match gui.menu {
-            gui::GuiMenu::GameMenu(_) => {
+            gui::GuiMenu::GameMenu(tab) => {
                 for event in events.poll_iter() {
                     match event {
                         Event::Quit {..} |
-                        Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
+                        Event::KeyDown { keycode: Some(Keycode::Escape), repeat: false, .. } => {
                             break 'running
                         },
                         Event::KeyDown { keycode: Some(Keycode::Tab), .. } => {
-                            state.gui_game_mode_index = (state.gui_game_mode_index + 1) % gui::GameMenuTabVariants;
+                            gui.menu = gui::GuiMenu::GameMenu(tab.next());
                         },
                         Event::KeyDown { keycode: Some(Keycode::D), .. } => {
                             state.selected_unit_index = (state.selected_unit_index + 1) % units;
@@ -90,33 +95,58 @@ fn main() {
                         Event::KeyDown { keycode: Some(Keycode::A), .. } => {
                             if state.selected_unit_index == 0 { state.selected_unit_index = units - 1; }
                             else { state.selected_unit_index = state.selected_unit_index - 1; }
+                        },
+                        Event::KeyDown { keycode: Some(Keycode::M), repeat: false, .. } => {
+                            let mut units = state.ecs.write_storage::<Unit>();
+                            for (i, unit) in (&mut units).join().enumerate() {
+                                if i == state.selected_unit_index {
+                                    unit.mission = Mission::GoTo(rng.gen_range(0..15), rng.gen_range(0..15));
+                                }
+                            }
                         }
                         _ => {}
                     }
                 }
+
+                tick = (tick + 1) % TICK_SIZE;
+                if tick == 0 {
+                    mission_system.run_now(&mut state.ecs);
+                    state.ecs.maintain();
+                }
             },
-            gui::GuiMenu::MainMenu(_) => {
+            gui::GuiMenu::MainMenu(button) => {
                 for event in events.poll_iter() {
                     match event {
                         Event::Quit {..} |
-                        Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
+                        Event::KeyDown { keycode: Some(Keycode::Escape), repeat: false, .. } => {
                             break 'running
                         },
-                        Event::KeyDown { keycode: Some(Keycode::D), repeat: false, .. } => {
-                            state.selected_unit_index = (state.selected_unit_index + 1) % units;
+                        Event::KeyDown { keycode: Some(Keycode::D), .. } => {
+                            gui.menu = gui::GuiMenu::MainMenu(button.next());
                         },
-                        Event::KeyDown { keycode: Some(Keycode::A), repeat: false, .. } => {
-                            if state.selected_unit_index == 0 { state.selected_unit_index = units - 1; }
-                            else { state.selected_unit_index = state.selected_unit_index - 1; }
+                        Event::KeyDown { keycode: Some(Keycode::A), .. } => {
+                            gui.menu = gui::GuiMenu::MainMenu(button.prev());
                         },
                         Event::KeyDown { keycode: Some(Keycode::Return), repeat: false, .. } => {
-                            gui.menu = gui::GuiMenu::GameMenu(gui::GameMenuTab::Unit);
+                            gui.menu = button.get_menu();
                         }
                         _ => {}
                     }
                 }
             },
-            _ => {}
+            _ => {
+                for event in events.poll_iter() {
+                    match event {
+                        Event::Quit {..} => {
+                            break 'running
+                        },
+                        Event::KeyDown { keycode: Some(Keycode::Escape), repeat: false, .. } => {
+                            gui.menu = gui::GuiMenu::MainMenu(gui::MainMenuButton::Start)
+                        },
+                        _ => {}
+                    }
+                }
+            }
         }
 
         gui.render(&mut state);

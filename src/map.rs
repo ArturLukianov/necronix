@@ -10,11 +10,12 @@ impl Map {
     pub fn new(width: u32, height: u32) -> Map {
         let mut tiles = vec![0; (width * height) as usize];
         let mut rng = rand::thread_rng();
-        for i in 0..width*height {
-            if rng.gen_range(0..10) == 1 {
-                tiles[i as usize] = 1;
-            }
-        }
+
+        // for i in 0..width*height {
+        //     if rng.gen_range(0..10) == 1 {
+        //         tiles[i as usize] = 1;
+        //     }
+        // }
         Map {
             width: width,
             height: height,

@@ -16,16 +16,99 @@ const DARK_BG_COLOR: Color = Color::RGB(1, 22, 29);
 const LIGHT_BG_COLOR: Color = Color::RGB(64, 121, 140);
 
 #[derive(PartialEq)]
-pub enum GuiMenu { MainMenu(MainMenuButton), HelpMenu, GameMenu(GameMenuTab) }
+pub enum GuiMenu { MainMenu(MainMenuButton), HelpMenu, GameMenu(GameMenuTab), CreditsMenu }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum MainMenuButton { Start, Help, Credits }
-pub const MainMenuButtonVariants : usize = 3;
 
-#[derive(PartialEq, Clone)]
+impl MainMenuButton {
+    pub fn variants_count() -> u32 { 3 }
+    pub fn from_u8(id: u8) -> MainMenuButton {
+        match id {
+            0 => MainMenuButton::Start,
+            1 => MainMenuButton::Help,
+            2 => MainMenuButton::Credits,
+            _ => MainMenuButton::Start
+        }
+    }
+
+    pub fn to_u8(&self) -> u8 {
+        match self {
+            MainMenuButton::Start => 0,
+            MainMenuButton::Help => 1,
+            MainMenuButton::Credits => 2
+        }
+    }
+
+    pub fn next(&self) -> MainMenuButton {
+        MainMenuButton::from_u8((self.to_u8() + 1) % MainMenuButton::variants_count() as u8)
+    }
+
+    pub fn prev(&self) -> MainMenuButton {
+        let i = self.to_u8();
+        if i == 0 {
+            return MainMenuButton::from_u8(MainMenuButton::variants_count() as u8 - 1);
+        }
+        MainMenuButton::from_u8((self.to_u8() - 1) % MainMenuButton::variants_count() as u8)
+    }
+
+    pub fn get_text(&self) -> String {
+        match self {
+            MainMenuButton::Start => "Start".to_string(),
+            MainMenuButton::Help => "Help".to_string(),
+            MainMenuButton::Credits => "Credits".to_string()
+        }
+    }
+
+    pub fn get_icon(&self) -> u32 {
+        match self {
+            MainMenuButton::Start => 140,
+            MainMenuButton::Help => '?' as u32,
+            MainMenuButton::Credits => '@' as u32
+        }
+    }
+
+    pub fn get_color(&self) -> (u8, u8, u8) {
+        match self {
+            MainMenuButton::Start => (100, 0, 200),
+            MainMenuButton::Help => (200, 100, 0),
+            MainMenuButton::Credits => (200, 0, 100)
+        }
+    }
+
+    pub fn get_menu(&self) -> GuiMenu {
+        match self {
+            MainMenuButton::Start => GuiMenu::GameMenu(GameMenuTab::Unit),
+            MainMenuButton::Help => GuiMenu::HelpMenu,
+            MainMenuButton::Credits => GuiMenu::CreditsMenu
+        }
+    }
+}
+
+#[derive(PartialEq, Clone, Copy)]
 pub enum GameMenuTab { Unit, Log }
-pub const GameMenuTabVariants : usize = 2;
 
+impl GameMenuTab {
+    pub fn variants_count() -> u32 { 2 }
+    pub fn from_u8(id: u8) -> GameMenuTab {
+        match id {
+            0 => GameMenuTab::Unit,
+            1 => GameMenuTab::Log,
+            _ => GameMenuTab::Unit
+        }
+    }
+
+    pub fn to_u8(&self) -> u8 {
+        match self {
+            GameMenuTab::Unit => 0,
+            GameMenuTab::Log => 1
+        }
+    }
+
+    pub fn next(&self) -> GameMenuTab {
+        GameMenuTab::from_u8((self.to_u8() + 1) % GameMenuTab::variants_count() as u8)
+    }
+}
 
 pub struct GUI<'a> {
     pub canvas: WindowCanvas,
@@ -60,14 +143,20 @@ impl GUI<'_> {
         self.canvas.clear();
 
         match self.menu {
-            GuiMenu::GameMenu(_) => {
+            GuiMenu::GameMenu(tab) => {
                 self.draw_map(state);
                 self.draw_unit_list(state);
-                self.draw_menu(state);
-                self.draw_statusline(state);
+                self.draw_menu(state, tab);
+                self.draw_statusline(state, tab);
             },
             GuiMenu::MainMenu(_) => {
                 self.draw_main_menu(state);
+            },
+            GuiMenu::HelpMenu => {
+                self.draw_help_menu();
+            },
+            GuiMenu::CreditsMenu => {
+                self.draw_credits_menu();
             },
             _ => {}
         }
@@ -101,20 +190,53 @@ impl GUI<'_> {
     }
 
 
+    fn draw_help_menu(&mut self) {
+        let (width, height) = self.canvas.output_size().unwrap();
+
+        let text = "Help";
+        self.tileset.set_color_mod(200, 100, 0);
+        self.draw_text_real_xy(width / 2 - text.len() as u32 * TILE_SIZE / 2, TILE_SIZE / 2, text);
+
+        self.tileset.set_color_mod(200, 200, 200);
+        for i in 0..20 {
+            let text = "You should take a look into README.md";
+            self.draw_text_real_xy(width / 2 - text.len() as u32 * TILE_SIZE / 2, TILE_SIZE / 2 + TILE_SIZE * (i + 2), text);
+        }
+    }
+
+
+    fn draw_credits_menu(&mut self) {
+        let (width, height) = self.canvas.output_size().unwrap();
+        let text = "Author: ArturLukianov";
+        self.tileset.set_color_mod(200, 200, 200);
+        self.draw_text_real_xy(width / 2 - text.len() as u32 * TILE_SIZE / 2, height / 2 - TILE_SIZE / 2, "Author:");
+        self.tileset.set_color_mod(200, 0, 100);
+        self.draw_text_real_xy(width / 2 - text.len() as u32 * TILE_SIZE / 2 + TILE_SIZE * 8, height / 2 - TILE_SIZE / 2, "ArturLukianov");
+    }
+
+
     fn draw_main_menu(&mut self, state: &mut State) {
         let (width, height) = self.canvas.output_size().unwrap();
 
         let title = "Necronix";
-        let button_text = "Start";
-        self.tileset.set_color_mod(255, 255, 255);
-        self.draw_text_real_xy(width / 2 - title.len() as u32 * TILE_SIZE / 2, height / 2 - TILE_SIZE / 2 - TILE_SIZE * 2, title);
-        self.tileset.set_color_mod(100, 100, 100);
-        self.draw_tile_real_xy(width / 2 - TILE_SIZE / 2 - TILE_SIZE * 2, height / 2 + TILE_SIZE / 2 - TILE_SIZE, '<' as u32);
-        self.draw_tile_real_xy(width / 2 - TILE_SIZE / 2 + TILE_SIZE * 2, height / 2 + TILE_SIZE / 2 - TILE_SIZE, '>' as u32);
-        self.tileset.set_color_mod(100, 0, 200);
-        self.draw_tile_real_xy(width / 2 - TILE_SIZE / 2, height / 2 + TILE_SIZE / 2 - TILE_SIZE, 140);
-        self.tileset.set_color_mod(100, 0, 200);
-        self.draw_text_real_xy(width / 2 - button_text.len() as u32 * TILE_SIZE / 2, height / 2 - TILE_SIZE / 2 + TILE_SIZE * 2, button_text);
+
+        match self.menu {
+            GuiMenu::MainMenu(button) => {
+                let button_text = button.get_text();
+                let button_color = button.get_color();
+
+                self.tileset.set_color_mod(255, 255, 255);
+                self.draw_text_real_xy(width / 2 - title.len() as u32 * TILE_SIZE / 2, height / 2 - TILE_SIZE / 2 - TILE_SIZE * 2, title);
+                self.tileset.set_color_mod(100, 100, 100);
+                self.draw_tile_real_xy(width / 2 - TILE_SIZE / 2 - TILE_SIZE * 2, height / 2 + TILE_SIZE / 2 - TILE_SIZE, '<' as u32);
+                self.draw_tile_real_xy(width / 2 - TILE_SIZE / 2 + TILE_SIZE * 2, height / 2 + TILE_SIZE / 2 - TILE_SIZE, '>' as u32);
+                self.tileset.set_color_mod(button_color.0, button_color.1, button_color.2);
+                self.draw_tile_real_xy(width / 2 - TILE_SIZE / 2, height / 2 + TILE_SIZE / 2 - TILE_SIZE, button.get_icon());
+                self.draw_text_real_xy(width / 2 - button_text.len() as u32 * TILE_SIZE / 2, height / 2 - TILE_SIZE / 2 + TILE_SIZE * 2, button_text);
+            },
+            _ => {return;}
+        }
+
     }
 
     fn draw_map(&mut self, state: &mut State) {
@@ -181,7 +303,7 @@ impl GUI<'_> {
         }
     }
 
-    fn draw_menu(&mut self, state: &mut State) {
+    fn draw_menu(&mut self, state: &mut State, current_tab: GameMenuTab) {
         let (width, height) = self.canvas.output_size().unwrap();
 
         let mut renderable: Option<Renderable> = None;
@@ -200,17 +322,13 @@ impl GUI<'_> {
         self.canvas.set_draw_color(DARK_BG_COLOR.clone());
         self.canvas.fill_rect(Rect::new((TILE_SIZE * MAP_SIZE) as i32, 0, width - MAP_SIZE * TILE_SIZE, TILE_SIZE)).unwrap();
 
-        for i in 0..GameMenuTabVariants {
-            let tab = match i {
-                1 => GameMenuTab::Log,
-                0 => GameMenuTab::Unit,
-                _ => GameMenuTab::Unit
-            };
+        for i in 0..GameMenuTab::variants_count() {
+            let tab = GameMenuTab::from_u8(i as u8);
 
             let name = tab_name(&tab);
             let icon = tab_default_icon(&tab);
 
-            if i == state.gui_game_mode_index {
+            if tab == current_tab {
                 self.canvas.set_draw_color(BG_COLOR.clone());
                 self.canvas.fill_rect(Rect::new((TILE_SIZE * (MAP_SIZE + i as u32 * 3)) as i32, 0, 3 * TILE_SIZE, TILE_SIZE)).unwrap();
                 self.tileset.set_color_mod(200, 200, 200);
@@ -221,7 +339,7 @@ impl GUI<'_> {
             match tab {
                 GameMenuTab::Unit => {
                     if let Some(renderable) = renderable {
-                        if i == state.gui_game_mode_index { self.tileset.set_color_mod(renderable.color.0 * 2, renderable.color.1 * 2, renderable.color.2 * 2); }
+                        if tab == current_tab { self.tileset.set_color_mod(renderable.color.0 * 2, renderable.color.1 * 2, renderable.color.2 * 2); }
                         else { self.tileset.set_color_mod(renderable.color.0, renderable.color.1, renderable.color.2); }
                         self.draw_tile(MAP_SIZE + i as u32 * 3 + 1, 0, renderable.glyph);
                     } else {
@@ -234,11 +352,11 @@ impl GUI<'_> {
             }
         }
 
-        match state.gui_game_mode_index {
-            1 => {
+        match current_tab {
+            GameMenuTab::Log => {
                 self.draw_log(state, MAP_SIZE, 1);
             },
-            0 => {
+            GameMenuTab::Unit => {
                 self.draw_unit_info(state, MAP_SIZE, 1);
             },
             _ => {}
@@ -259,34 +377,29 @@ impl GUI<'_> {
         let entities = state.ecs.entities();
         let names = state.ecs.read_storage::<Name>();
 
-        for (i, (_, entity, position, render)) in (&units, &entities, &positions, &renderables).join().enumerate() {
+        for (i, (unit, entity, position, render)) in (&units, &entities, &positions, &renderables).join().enumerate() {
             if i == state.selected_unit_index {
                 self.tileset.set_color_mod(render.color.0 * 2, render.color.1 * 2, render.color.2 * 2);
                 let mut name = "Unnamed";
                 self.draw_text(x, y, "Unnamed");
                 self.tileset.set_color_mod(200, 200, 200);
                 self.draw_text(x + name.len() as u32 + 1, y, format!("{}:{}", position.x, position.y));
+                self.tileset.set_color_mod(150, 150, 150);
+                self.draw_text(x, y + 1, unit.mission.get_description());
 
                 break;
             }
         }
     }
 
-    fn draw_statusline(&mut self, state: &mut State) {
+    fn draw_statusline(&mut self, state: &mut State, current_tab: GameMenuTab) {
         let (width, height) = self.canvas.output_size().unwrap();
         self.canvas.set_draw_color(DARK_BG_COLOR.clone());
         self.canvas.fill_rect(Rect::new(0, (height - TILE_SIZE) as i32, width, TILE_SIZE)).unwrap();
 
-
-        let tab = match state.gui_game_mode_index {
-            1 => GameMenuTab::Log,
-            0 => GameMenuTab::Unit,
-            _ => GameMenuTab::Unit
-        };
-
         self.tileset.set_color_mod(200, 200, 200);
         self.draw_tile_real_xy(0, height - TILE_SIZE, 7);
-        self.draw_text_real_xy(2 * TILE_SIZE, height - TILE_SIZE, tab_name(&tab));
+        self.draw_text_real_xy(2 * TILE_SIZE, height - TILE_SIZE, tab_name(&current_tab));
     }
 
 }

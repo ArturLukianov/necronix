@@ -27,8 +27,34 @@ pub struct Physical {
 #[derive(Component)]
 pub struct BlocksTile {}
 
+pub enum MaterialType { Logs }
+
 #[derive(Component)]
-pub struct Unit {}
+pub struct Material {
+    pub material_type: MaterialType
+}
+
+#[derive(Component)]
+pub struct Choppable {
+    pub chops_into: MaterialType
+}
+
+pub enum Mission { Stay, GoTo(u32, u32), Chop(Entity) }
+
+impl Mission {
+    pub fn get_description(&self) -> String {
+        match self {
+            Mission::Stay => "Stay".to_string(),
+            Mission::GoTo(x, y) => format!("GoTo {}:{}", x, y).to_string(),
+            Mission::Chop(entity) => "Chop".to_string()
+        }
+    }
+}
+
+#[derive(Component)]
+pub struct Unit {
+    pub mission: Mission
+}
 
 #[derive(Component)]
 pub struct Living {
